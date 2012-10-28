@@ -92,6 +92,8 @@ namespace VolumeFluctuation
 
         private static float GetStandardDeviation(List<float> values, float average_value)
         {
+            // 因用于计算分段标准差时存在 sum(values) != N * average_value 的情况，此处不能使用简易公式进行计算
+
             float diff_square_sum = 0.0f;
 
             foreach (float value in values)
