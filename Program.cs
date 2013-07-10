@@ -44,8 +44,11 @@ namespace VolumeFluctuation
                 }
 
                 Process proc = new Process();
-                proc.StartInfo.FileName = @"C:\Program Files\Media Utilities\NeroAac\neroAacDec.exe";
-                proc.StartInfo.Arguments = "-if \"" + path + "\" -of \"" + path_temp + "\"";
+//                proc.StartInfo.FileName = @"C:\Program Files\Media Utilities\NeroAac\neroAacDec.exe";
+//                proc.StartInfo.Arguments = "-if \"" + path + "\" -of \"" + path_temp + "\"";
+                proc.StartInfo.FileName = @"E:\ffmpeg\ffmpeg.exe";
+//                proc.StartInfo.Arguments = "-i \"" + path + "\" -vn -ar 44100 -ac 1 -f wav \"" + path_temp + "\"";
+                proc.StartInfo.Arguments = "-i \"" + path + "\" -vn -f wav \"" + path_temp + "\"";
                 proc.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
                 proc.Start();
 
