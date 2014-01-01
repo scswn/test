@@ -36,15 +36,17 @@ namespace VolumeFluctuation
 
             Process proc = new Process();
             proc.StartInfo.FileName = @"E:\ffmpeg\ffmpeg.exe";
-            // proc.StartInfo.Arguments = "-i \"" + path + "\" -vn -ar 44100 -ac 1 -f wav \"" + path_temp + "\"";
             proc.StartInfo.Arguments = "-i \"" + path + "\" -vn -ar 44100 -ac 1 -f f32le -";
+            proc.StartInfo.CreateNoWindow = true;
             proc.StartInfo.UseShellExecute = false;
             proc.StartInfo.RedirectStandardOutput = true;
-            // proc.StartInfo.RedirectStandardError = true;
+            proc.StartInfo.RedirectStandardError = true;
+
+            proc.ErrorDataReceived += new DataReceivedEventHandler(proc_ErrorDataReceived);
 
             proc.Start();
 
-            // string stderr = proc.StandardError.ReadToEnd();
+            proc.BeginErrorReadLine();
 
             Process(proc.StandardOutput.BaseStream);
 
@@ -62,6 +64,15 @@ namespace VolumeFluctuation
             Environment.Exit(0);
         }
 
+        static void proc_ErrorDataReceived(object sender, DataReceivedEventArgs e)
+        {
+            if (e.Data != null)
+            {
+                // Console.WriteLine(e.Data);
+                // do nothing
+            }
+        }
+
         static void Process(Stream stream)
         {
             Calculator calculator = new Calculator();
@@ -70,11 +81,11 @@ namespace VolumeFluctuation
 
             int didread;
             int offset = 0;
-            byte[] buffer = new byte[4096 + sizeof(Single)];
+            byte[] buffer = new byte[sizeof(Single) * (1024 + 1)];
 
             int length, residual_length;
 
-            while ((didread = stream.Read(buffer, offset, 4096)) != 0)
+            while ((didread = stream.Read(buffer, offset, sizeof(Single) * 1024)) != 0)
             {
                 length = offset + didread;
 
