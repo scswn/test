@@ -9,8 +9,6 @@ namespace VolumeFluctuation
 {
     class Program
     {
-        private static string path_temp = @"Z:\volfluc_temp\temp.wav";
-
         static void Main(string[] args)
         {
             if (args.Length < 1)
@@ -36,36 +34,32 @@ namespace VolumeFluctuation
 
             Console.Write("{0}, ", Path.GetFileNameWithoutExtension(path));
 
-            if (Path.GetExtension(path).ToLowerInvariant() != ".wav")
+            Process proc = new Process();
+            proc.StartInfo.FileName = @"E:\ffmpeg\ffmpeg.exe";
+            // proc.StartInfo.Arguments = "-i \"" + path + "\" -vn -ar 44100 -ac 1 -f wav \"" + path_temp + "\"";
+            proc.StartInfo.Arguments = "-i \"" + path + "\" -vn -ar 44100 -ac 1 -f f32le -";
+            proc.StartInfo.UseShellExecute = false;
+            proc.StartInfo.RedirectStandardOutput = true;
+//            proc.StartInfo.RedirectStandardError = true;
+
+            proc.Start();
+
+            MemoryStream ms = new MemoryStream();
+            StreamCopy(proc.StandardOutput.BaseStream, ms);
+
+//            string stderr = proc.StandardError.ReadToEnd();
+
+            proc.WaitForExit(30000); // 30s
+
+            if (!proc.HasExited)
             {
-                if (File.Exists(path_temp))
-                {
-                    File.Delete(path_temp);
-                }
-
-                Process proc = new Process();
-//                proc.StartInfo.FileName = @"C:\Program Files\Media Utilities\NeroAac\neroAacDec.exe";
-//                proc.StartInfo.Arguments = "-if \"" + path + "\" -of \"" + path_temp + "\"";
-                proc.StartInfo.FileName = @"E:\ffmpeg\ffmpeg.exe";
-//                proc.StartInfo.Arguments = "-i \"" + path + "\" -vn -ar 44100 -ac 1 -f wav \"" + path_temp + "\"";
-                proc.StartInfo.Arguments = "-i \"" + path + "\" -vn -f wav \"" + path_temp + "\"";
-                proc.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
-                proc.Start();
-
-                proc.WaitForExit(30000); // 30s
-
-                if (!proc.HasExited)
-                {
-                    proc.Kill();
-                    Environment.Exit(1);
-                }
-
-                Process(path_temp);
+                proc.Kill();
+                Environment.Exit(1);
             }
-            else
-            {
-                Process(path);
-            }
+
+            ms.Position = 0;
+
+            Process(ms);
 
 #if DEBUG
             Console.ReadKey();
@@ -73,33 +67,29 @@ namespace VolumeFluctuation
             Environment.Exit(0);
         }
 
-        static void Process(string path)
+        static void StreamCopy(Stream src, Stream dst)
+        {
+            // From System.IO.Stream.InternalCopyTo() in .NET Framework 4.0
+            int num;
+            byte[] buffer = new byte[4096];
+            while ((num = src.Read(buffer, 0, buffer.Length)) != 0)
+            {
+                dst.Write(buffer, 0, num);
+            }
+        }
+
+        static void Process(Stream stream)
         {
             Calculator calculator = new Calculator();
 
-            WaveStream readerStream = new WaveFileReader(path);
-
-            //Console.WriteLine("{0}, {1}, {2}, {3}", readerStream.WaveFormat.Encoding,
-            //    readerStream.WaveFormat.BitsPerSample, readerStream.WaveFormat.Channels,
-            //    readerStream.WaveFormat.SampleRate);
-
-            WaveChannel32 sourceStream = new WaveChannel32(readerStream);
-
-            //Console.WriteLine("{0}, {1}, {2}, {3}", sourceStream.WaveFormat.Encoding,
-            //    sourceStream.WaveFormat.BitsPerSample, sourceStream.WaveFormat.Channels,
-            //    sourceStream.WaveFormat.SampleRate);
-
-            if (sourceStream.WaveFormat.BitsPerSample != 32)
-                throw new ArgumentException("Metering Stream expects 32 bit floating point audio", "sourceStream");
-
-            calculator.Init(sourceStream.WaveFormat.SampleRate, sourceStream.WaveFormat.Channels);
+            calculator.Init(44100, 1);
 
             byte[] buffer = new byte[4096];
             int length = 0;
 
-            while (sourceStream.Position < sourceStream.Length)
+            while (stream.Position < stream.Length)
             {
-                length = sourceStream.Read(buffer, 0, buffer.Length);
+                length = stream.Read(buffer, 0, buffer.Length);
                 if (length == 0)
                 {
                     break;
