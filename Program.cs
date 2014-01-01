@@ -40,16 +40,15 @@ namespace VolumeFluctuation
             proc.StartInfo.Arguments = "-i \"" + path + "\" -vn -ar 44100 -ac 1 -f f32le -";
             proc.StartInfo.UseShellExecute = false;
             proc.StartInfo.RedirectStandardOutput = true;
-//            proc.StartInfo.RedirectStandardError = true;
+            // proc.StartInfo.RedirectStandardError = true;
 
             proc.Start();
 
-            MemoryStream ms = new MemoryStream();
-            StreamCopy(proc.StandardOutput.BaseStream, ms);
+            // string stderr = proc.StandardError.ReadToEnd();
 
-//            string stderr = proc.StandardError.ReadToEnd();
+            Process(proc.StandardOutput.BaseStream);
 
-            proc.WaitForExit(30000); // 30s
+            proc.WaitForExit(10000); // 10s
 
             if (!proc.HasExited)
             {
@@ -57,25 +56,10 @@ namespace VolumeFluctuation
                 Environment.Exit(1);
             }
 
-            ms.Position = 0;
-
-            Process(ms);
-
 #if DEBUG
             Console.ReadKey();
 #endif
             Environment.Exit(0);
-        }
-
-        static void StreamCopy(Stream src, Stream dst)
-        {
-            // From System.IO.Stream.InternalCopyTo() in .NET Framework 4.0
-            int num;
-            byte[] buffer = new byte[4096];
-            while ((num = src.Read(buffer, 0, buffer.Length)) != 0)
-            {
-                dst.Write(buffer, 0, num);
-            }
         }
 
         static void Process(Stream stream)
@@ -84,18 +68,29 @@ namespace VolumeFluctuation
 
             calculator.Init(44100, 1);
 
-            byte[] buffer = new byte[4096];
-            int length = 0;
+            int didread;
+            int offset = 0;
+            byte[] buffer = new byte[4096 + sizeof(Single)];
 
-            while (stream.Position < stream.Length)
+            int length, residual_length;
+
+            while ((didread = stream.Read(buffer, offset, 4096)) != 0)
             {
-                length = stream.Read(buffer, 0, buffer.Length);
-                if (length == 0)
-                {
-                    break;
-                }
+                length = offset + didread;
 
-                calculator.Apply(buffer, length);
+                residual_length = length % sizeof(Single);
+
+                if (residual_length == 0) {
+                    calculator.Apply(buffer, length);
+
+                    offset = 0;
+                } else {
+                    length -= residual_length;
+                    calculator.Apply(buffer, length);
+
+                    Array.Copy(buffer, length, buffer, 0, residual_length);
+                    offset = residual_length;
+                }
             }
 
             calculator.Calc();
